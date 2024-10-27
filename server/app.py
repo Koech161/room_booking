@@ -16,11 +16,15 @@ import secrets
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
-import logging
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView
+
+load_dotenv()
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(16))
 app.json.compact=False
 
 
@@ -28,7 +32,7 @@ app.json.compact=False
 db.init_app(app)
 migrate = Migrate(app,db)
 api = Api(app)
-load_dotenv()
+
 jwt = JWTManager(app)
 
 CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME')
@@ -52,6 +56,14 @@ users_schema = UserSchema(many=True)
 payments_schema =PaymentSchema(many=True)
 bookings_schema = BookingSchema(many=True)
 
+admin = Admin(app, name='Room Admin', template_mode='bootstrap3')
+class RoomAdmin(ModelView):
+    # Include a custom form if needed, or just rely on default
+    column_list = ('room_no', 'room_type', 'capacity', 'status', 'image_url')
+    form_columns = ('room_no', 'room_type', 'capacity', 'status', 'image_url')  
+admin.add_view(ModelView(User, db.session))
+admin.add_view(RoomAdmin(Room, db.session))
+
 class Register(Resource):
     def post(self):
         data = request.get_json()
@@ -73,7 +85,7 @@ class Register(Resource):
         try:
             db.session.add(new_user)
             db.session.commit()
-            return {'message': 'User registered successfully', 'user': new_user.username}
+            return {'message': 'User registered successfully', 'user': new_user.username},201
         except Exception as e:
             db.session.rollback()
             return {'error': str(e)}, 500
