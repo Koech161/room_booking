@@ -14,6 +14,7 @@ class RoomSchema(Schema):
     room_type = fields.Str(required=True)
     capacity = fields.Int(required=True)
     status = fields.Bool(required=True)
+    image_url = fields.Str(required=True)
 
 class BookingSchema(Schema):
     id = fields.Int(dump_only=True)
