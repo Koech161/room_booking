@@ -1,6 +1,6 @@
 from flask import Flask, make_response, request
 from flask_migrate import Migrate
-
+from flask_cors import CORS
 from utils import db
 from models.booking import Booking
 from models.payment import Payment
@@ -19,6 +19,9 @@ from datetime import timedelta
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 
+from flask_mail import Mail, Message # pip install Flask-mail
+from itsdangerous import URLSafeTimedSerializer
+
 load_dotenv()
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
@@ -27,13 +30,16 @@ app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(16))
 app.json.compact=False
 
+# send email before registering
+app.config['MAIL_SERVER'] = 'smtp.gmail.com' 
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] =os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+app.config['MAIL_DEBUG'] = True
 
 
-db.init_app(app)
-migrate = Migrate(app,db)
-api = Api(app)
-
-jwt = JWTManager(app)
 
 CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME')
 CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY')
@@ -45,7 +51,15 @@ cloudinary.config(
     api_secret=CLOUDINARY_API_SECRET,
     secure=True
 )
-print(app.config['JWT_SECRET_KEY'])
+
+db.init_app(app)
+migrate = Migrate(app,db)
+api = Api(app)
+CORS(app)
+jwt = JWTManager(app)
+
+mail = Mail(app)
+s  = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 room_schema = RoomSchema()
 user_schema = UserSchema()
@@ -85,10 +99,33 @@ class Register(Resource):
         try:
             db.session.add(new_user)
             db.session.commit()
-            return {'message': 'User registered successfully', 'user': new_user.username},201
+            user_data = user_schema.dump(new_user)
+            token = s.dump(email, salt='email-confirm')
+            comfirm_url = f"http://localhost:5555/confirm/{token}"
+            msg =Message("Confirm Your Email", recipients=[email])
+            msg.body = f"Please click the link to confirm your email: {comfirm_url}"
+            try:
+                mail.send(msg)
+                print('Email send successfully')
+            except Exception as e:
+                print(f"Failed to send email: {str(e)}")    
+            return {'message': 'User registered successfully', 'user': user_data},201
         except Exception as e:
             db.session.rollback()
             return {'error': str(e)}, 500
+class ConfirmEmail(Resource):
+    def get(self, token):
+        try:
+            email = s.loads(token, salt='email-confirm', max_age=1800)
+            user = User.query.filter_by(email=email).first()
+            if user and not user.confirmed:
+                user.confirmed =True
+                db.session.commit()   
+                return {'message': 'Email confirmed successfully! You can now log in.'}, 200
+            return {'error': 'User not found or already registered'}, 404
+        except Exception as e:
+            return {'errror': str(e)}, 400
+            
 
 class Login(Resource):
     def post(self):
@@ -97,8 +134,11 @@ class Login(Resource):
         password = data.get('password')
         
         user = User.query.filter_by(email=email).first()
+        if user:
+            if not user.confirmed:
+                return {'error': 'Email not confirmed. please check your email for the confirmation link'}, 403
      
-        if user and check_password_hash(user.password, password):
+        if check_password_hash(user.password, password):
             access_token = create_access_token(identity=email, expires_delta=timedelta(days=1))
             return {'message': "Login successfully", "Token":access_token, }, 200
         return {'error': 'Invalid credentials'}, 401
@@ -181,6 +221,8 @@ api.add_resource(GetRooms, '/rooms')
 api.add_resource(RoomByID, '/rooms/<int:id>')
 api.add_resource(Login, '/login')
 api.add_resource(Register, '/register')
+api.add_resource(ConfirmEmail, '/confirm/<token>')
+
 
 
 if __name__ == '__main__':

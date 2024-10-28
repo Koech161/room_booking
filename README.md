@@ -1,1 +1,2 @@
-# room_booking
+# A room booking application
+

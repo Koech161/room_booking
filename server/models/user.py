@@ -8,6 +8,8 @@ class User(db.Model):
     email = db.Column(db.String, nullable=False, unique=True)
     password = db.Column(db.String, nullable=False)
     role = db.Column(db.String, nullable=True, default='guest')
+    confirmed = db.Column(db.Boolean, nullable=False, default=False) 
+
 
     bookings = db.relationship('Booking', back_populates='user', cascade='all, delete-orphan', lazy=True)
     def __repr__(self):
