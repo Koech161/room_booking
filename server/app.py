@@ -13,7 +13,7 @@ import cloudinary.uploader
 from dotenv import load_dotenv
 import os
 import secrets
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
 from flask_admin import Admin
@@ -32,7 +32,7 @@ app.json.compact=False
 
 # send email before registering
 app.config['MAIL_SERVER'] = 'smtp.gmail.com' 
-app.config['MAIL_PORT'] = 587
+app.config['MAIL_PORT'] = 587 # if SSL use 465
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] =os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
@@ -215,6 +215,48 @@ class RoomByID(Resource):
         except Exception as e:
             db.session.rollback()
             return {'error': str(e)},500
+        
+class BookRoom(Resource):
+    def post(self):
+        data = request.get_json()     
+        user_id = get_jwt_identity() 
+        room_id = data.get('room_id')
+        check_in = data.get('check_in')
+        check_out = data.get('check_out')
+        total_price = data.get('total_price')
+        status = data.get('status')
+
+        if not is_room_available(room_id, check_in, check_out):
+            return {'error': 'Room already booked for the selected time'}, 409
+        new_booking = Booking(user_id=user_id, room_id=room_id, check_in=check_in, check_out=check_out, total_price=total_price, status=status)
+        try:
+            db.session.add(new_booking)
+            db.session.commit()
+            return {'Mesaage': 'Room successfully booked', 'booked:id': new_booking.id}, 201
+        except Exception as e:
+            db.session.rollback()
+            return {'error': str(e)}, 500
+        
+def is_room_available(room_id, check_in, check_out):
+    bookings  =Booking.query.filter(
+        Booking.room_id == room_id,
+        (Booking.check_in < check_out) & (Booking.check_out > check_in)
+    ).all()
+    return len(bookings) == 0
+
+class CancelBooking(Resource):
+    def delete(self,id):
+        booking = Booking.query.get_or_404(id)
+        user_id = get_jwt_identity()
+        if booking.user_id != user_id:
+            return {'error': 'You do not have permision to cancel booking'},403
+        try:
+            db.session.delete(booking)
+            db.session.commit()
+            return {'message': 'Booking canceled successfully'},200
+        except Exception as e:
+            db.session.rollback()
+            return {'error': str(e)}, 500
 
 
 api.add_resource(GetRooms, '/rooms')
@@ -222,6 +264,8 @@ api.add_resource(RoomByID, '/rooms/<int:id>')
 api.add_resource(Login, '/login')
 api.add_resource(Register, '/register')
 api.add_resource(ConfirmEmail, '/confirm/<token>')
+api.add_resource(BookRoom, '/bookings')
+api.add_resource(CancelBooking, '/bookings/<int:id>')
 
 
 
