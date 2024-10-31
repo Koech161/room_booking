@@ -9,7 +9,8 @@ class Room(db.Model):
     capacity = db.Column(db.Integer, nullable=False)
     status = db.Column(db.Boolean, nullable=False)
     image_url = db.Column(db.String, nullable=False)
-
+    price_per_hour = db.Column(db.Float, nullable=False)
+    
     bookings = db.relationship('Booking', back_populates='room', cascade='all, delete-orphan', lazy=True)
 
     def __repr__(self):

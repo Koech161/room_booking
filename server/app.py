@@ -1,4 +1,4 @@
-from flask import Flask, make_response, request
+from flask import Flask, request
 from flask_migrate import Migrate
 from flask_cors import CORS
 from utils import db
@@ -18,8 +18,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
+import datetime
 
-from flask_mail import Mail, Message # pip install Flask-mail
 from itsdangerous import URLSafeTimedSerializer
 
 load_dotenv()
@@ -31,13 +31,13 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(16))
 app.json.compact=False
 
 # send email before registering
-app.config['MAIL_SERVER'] = 'smtp.gmail.com' 
-app.config['MAIL_PORT'] = 587 # if SSL use 465
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] =os.getenv('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
-app.config['MAIL_DEBUG'] = True
+# app.config['MAIL_SERVER'] = 'smtp.gmail.com' 
+# app.config['MAIL_PORT'] = 587 # if SSL use 465
+# app.config['MAIL_USE_TLS'] = True
+# app.config['MAIL_USERNAME'] =os.getenv('MAIL_USERNAME')
+# app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+# app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+# app.config['MAIL_DEBUG'] = True
 
 
 
@@ -58,7 +58,7 @@ api = Api(app)
 CORS(app)
 jwt = JWTManager(app)
 
-mail = Mail(app)
+# mail = Mail(app)
 s  = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 room_schema = RoomSchema()
@@ -73,8 +73,8 @@ bookings_schema = BookingSchema(many=True)
 admin = Admin(app, name='Room Admin', template_mode='bootstrap3')
 class RoomAdmin(ModelView):
     # Include a custom form if needed, or just rely on default
-    column_list = ('room_no', 'room_type', 'capacity', 'status', 'image_url')
-    form_columns = ('room_no', 'room_type', 'capacity', 'status', 'image_url')  
+    column_list = ('room_no', 'room_type', 'capacity', 'status', 'image_url','price_per_hour')
+    form_columns = ('room_no', 'room_type', 'capacity', 'status', 'image_url', 'price_per_hour')  
 admin.add_view(ModelView(User, db.session))
 admin.add_view(RoomAdmin(Room, db.session))
 
@@ -93,7 +93,9 @@ class Register(Resource):
         if role not in valid_roles:
             return {'error': f'Invalid role. Valid roles are: {", ".join(valid_roles)}.'}, 400
         
-       
+        existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
+        if existing_user:
+            return {'error': 'Username or email already exists.'}, 409 
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
         new_user = User(username=username, email=email, password=hashed_password, role=role)
         try:
@@ -101,15 +103,9 @@ class Register(Resource):
             db.session.commit()
             user_data = user_schema.dump(new_user)
             token = s.dump(email, salt='email-confirm')
-            comfirm_url = f"http://localhost:5555/confirm/{token}"
-            msg =Message("Confirm Your Email", recipients=[email])
-            msg.body = f"Please click the link to confirm your email: {comfirm_url}"
-            try:
-                mail.send(msg)
-                print('Email send successfully')
-            except Exception as e:
-                print(f"Failed to send email: {str(e)}")    
-            return {'message': 'User registered successfully', 'user': user_data},201
+            confirm_url = f"http://localhost:5555/confirm/{token}"
+              
+            return {'message': 'User registered successfully', 'confirmation_link': confirm_url},201
         except Exception as e:
             db.session.rollback()
             return {'error': str(e)}, 500
@@ -164,9 +160,11 @@ class GetRooms(Resource):
         room_type = data.get('room_type')
         capacity = data.get('capacity')
         status = data.get('status')
+        price_per_hour= data.get('price_per_hour')
+        
        
-        if not all([room_no, room_type, capacity, status]):
-            return {'error': 'All fields (room_no, room_type, capacity, status) are required'}, 400
+        if not all([room_no, room_type, capacity, status, price_per_hour]):
+            return {'error': 'All fields (room_no, room_type, capacity, status, price_per_hour) are required'}, 400
         
         if isinstance(status, str):
             status = status.lower() == 'true'
@@ -174,7 +172,7 @@ class GetRooms(Resource):
         try:
             upload_result = cloudinary.uploader.upload(file, resource_type='image') 
             image_url = upload_result['secure_url']
-            new_room = Room(room_no=room_no, room_type=room_type, capacity=capacity, status=status, image_url=image_url)
+            new_room = Room(room_no=room_no, room_type=room_type, capacity=capacity, status=status, image_url=image_url,price_per_hour=price_per_hour)
             db.session.add(new_room)
             db.session.commit()
             return {'message': 'Room added successfully', 'room': new_room.room_no},201
@@ -183,6 +181,7 @@ class GetRooms(Resource):
             return {'error occured adding room': str(e)}, 500
         
 class RoomByID(Resource):
+    @jwt_required()
     def get(self, id):
         room = Room.query.get_or_404(id)
         try:
@@ -217,22 +216,30 @@ class RoomByID(Resource):
             return {'error': str(e)},500
         
 class BookRoom(Resource):
+    @jwt_required()
     def post(self):
         data = request.get_json()     
         user_id = get_jwt_identity() 
         room_id = data.get('room_id')
         check_in = data.get('check_in')
         check_out = data.get('check_out')
-        total_price = data.get('total_price')
-        status = data.get('status')
+       
+        check_in_dt = datetime.datetime.strptime(check_in,'%Y-%m-%dT%H:%M:%S')
+        check_out_dt = datetime.datetime.strptime(check_out, '%Y-%m-%dT%H:%M:%S')
+
+        room = Room.query.get_or_404(room_id)
+        hours = (check_out_dt - check_in_dt).total_seconds() / 3600
+        total_price = hours * room.price_per_hour
 
         if not is_room_available(room_id, check_in, check_out):
             return {'error': 'Room already booked for the selected time'}, 409
-        new_booking = Booking(user_id=user_id, room_id=room_id, check_in=check_in, check_out=check_out, total_price=total_price, status=status)
+        new_booking = Booking(user_id=user_id, room_id=room_id, check_in=check_in, check_out=check_out, total_price=total_price, status='booked')
         try:
             db.session.add(new_booking)
             db.session.commit()
-            return {'Mesaage': 'Room successfully booked', 'booked:id': new_booking.id}, 201
+            return {'Mesaage': 'Room successfully booked', 'booked:id': new_booking.id, 'total_price': total_price}, 201
+        except ValueError:
+            return {'error': 'Invalid date format. Please use YYYY-MM-DDTHH:MM:SS.'}, 400
         except Exception as e:
             db.session.rollback()
             return {'error': str(e)}, 500

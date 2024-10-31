@@ -5,7 +5,7 @@ class UserSchema(Schema):
     id = fields.Int(dump_only=True)
     username=fields.Str(required=True)
     email= fields.Str(required=True)
-    password = fields.Str(required=True)
+    password = fields.Str(load_only=True)
     role= fields.Str(dump_only=True)
 
 class RoomSchema(Schema):
@@ -15,6 +15,7 @@ class RoomSchema(Schema):
     capacity = fields.Int(required=True)
     status = fields.Bool(required=True)
     image_url = fields.Str(required=True)
+    price_per_hour = fields.Float(required=True)
 
 class BookingSchema(Schema):
     id = fields.Int(dump_only=True)
