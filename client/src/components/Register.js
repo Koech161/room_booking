@@ -27,7 +27,7 @@ const Register = () => {
             setStatus({ success: res.data.message });
 
             // Send confirmation email using EmailJS
-            emailjs.send("service_sghv0ni", "atLh5T_blrpqJ6RqS", {
+            emailjs.send("service_sghv0ni","template_rxlfcwf", {
                 to_email: values.email,
                 username: values.username,
                 confirmation_link: res.data.confirmation_link, // Include the confirmation link from the backend
