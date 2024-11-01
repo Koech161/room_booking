@@ -8,13 +8,14 @@ import Home from './components/Home';
 import Register from './components/Register';
 import Booking from './components/Booking';
 import Login from './components/Login';
-import { AuthProvider } from './components/AuthProvider';
+import ConfirmEmail from './components/ConfirmEmail';
+
 
 function App() {
   
   
   return (
-    <AuthProvider>
+   
     <Router>
       <Navbar />
       <div >
@@ -24,10 +25,11 @@ function App() {
           <Route path='/register' element={<Register />} />
           <Route path='/booking' element={<Booking />} />
           <Route path='/login' element={<Login />} />
+          <Route path='/confirmemail' element={<ConfirmEmail />} />
         </Routes>
       </div>
     </Router>
-    </AuthProvider>
+    
    
   )
 }

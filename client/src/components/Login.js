@@ -1,11 +1,16 @@
 import React from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
-import api from '../services/api'; // Adjust the path as needed
+import api from '../services/api'; 
 import * as Yup from 'yup';
 import { useNavigate } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useAuth } from './AuthProvider';
 
 const Login = () => {
-    const navigate = useNavigate()
+    const navigate = useNavigate();
+    const {login} = useAuth()
+
     const initialValues = {
         email: '',
         password: '',
@@ -16,20 +21,21 @@ const Login = () => {
             .email('Invalid email format')
             .required('Email is required'),
         password: Yup.string()
-            .required('Password is required'),
+            .required('Password is required')
+            .min(6, 'Password must be at least 6 characters'),
     });
 
-    const handleSubmit = async (values, { setSubmitting, setStatus }) => {
+    const handleSubmit = async (values, { setSubmitting }) => {
         try {
             const res = await api.post('/login', values);
-            setStatus({ success: res.data.message });
-            // Handle successful login (e.g., redirect, store token, etc.)
-            alert('Login successful!');
+            console.log("Login response:", res.data);
+            const {token, userId} = res.data
+            login(token, userId )
+            toast.success(res.data.message || 'Login successful!'); 
             setSubmitting(false);
-            navigate('/')
-            
+            navigate('/');
         } catch (error) {
-            setStatus({ error: error.response?.data?.error || 'Login failed' });
+            toast.error(error.response?.data?.error || 'Login failed'); 
             setSubmitting(false);
         }
     };
@@ -44,10 +50,8 @@ const Login = () => {
                         validationSchema={validationSchema}
                         onSubmit={handleSubmit}
                     >
-                        {({ isSubmitting, status }) => (
+                        {({ isSubmitting }) => (
                             <Form>
-                                {status?.success && <div className='alert alert-success'>{status.success}</div>}
-                                {status?.error && <div className='alert alert-danger'>{status.error}</div>}
                                 <div className='mb-3'>
                                     <label htmlFor='email'>Email</label>
                                     <Field
@@ -74,6 +78,7 @@ const Login = () => {
                     </Formik>
                 </div>
             </div>
+            <ToastContainer />
         </div>
     );
 };

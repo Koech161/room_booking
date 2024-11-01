@@ -1,10 +1,14 @@
 import React from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
-import api from '../services/api'; // Adjust the path as needed
-import emailjs from 'emailjs-com'; // Import EmailJS
+import api from '../services/api'; 
+import emailjs from 'emailjs-com'; 
+import { useNavigate } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Register = () => {
+    const navigate = useNavigate();
     const initialValues = {
         username: '',
         email: '',
@@ -27,20 +31,20 @@ const Register = () => {
             setStatus({ success: res.data.message });
 
             // Send confirmation email using EmailJS
-            emailjs.send("service_sghv0ni","template_rxlfcwf", {
+            const emailResponse = await emailjs.send("service_sghv0ni", "template_rxlfcwf", {
                 to_email: values.email,
                 username: values.username,
-                confirmation_link: res.data.confirmation_link, // Include the confirmation link from the backend
-            }, "atLh5T_blrpqJ6RqS")
-            .then((response) => {
-                console.log('Email sent successfully:', response.status, response.text);
-            }, (err) => {
-                console.error('Failed to send email:', err);
-            });
+                confirmation_link: res.data.confirmation_link, 
+            }, "atLh5T_blrpqJ6RqS");
 
-            alert('Registration successful! Please check your email to confirm.');
+            console.log('Email sent successfully:', emailResponse.status, emailResponse.text);
+            toast.success('Registration successful! Confirmation email sent.');
+
+            navigate('/confirmemail');
         } catch (error) {
-            setStatus({ error: error.response?.data?.error || 'Registration failed' });
+            const errorMessage = error.response?.data?.error || 'Registration failed';
+            toast.error(errorMessage);
+            setStatus({ error: errorMessage });
         } finally {
             setSubmitting(false);
         }
@@ -95,6 +99,7 @@ const Register = () => {
                     </Formik>
                 </div>
             </div>
+            <ToastContainer />
         </div>
     );
 };

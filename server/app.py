@@ -18,7 +18,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
-import datetime
+from datetime import datetime
 
 from itsdangerous import URLSafeTimedSerializer
 
@@ -29,16 +29,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', secrets.token_hex(16))
 app.json.compact=False
-
-# send email before registering
-# app.config['MAIL_SERVER'] = 'smtp.gmail.com' 
-# app.config['MAIL_PORT'] = 587 # if SSL use 465
-# app.config['MAIL_USE_TLS'] = True
-# app.config['MAIL_USERNAME'] =os.getenv('MAIL_USERNAME')
-# app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-# app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
-# app.config['MAIL_DEBUG'] = True
-
 
 
 CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME')
@@ -58,7 +48,6 @@ api = Api(app)
 CORS(app)
 jwt = JWTManager(app)
 
-# mail = Mail(app)
 s  = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 room_schema = RoomSchema()
@@ -76,6 +65,7 @@ class RoomAdmin(ModelView):
     column_list = ('room_no', 'room_type', 'capacity', 'status', 'image_url','price_per_hour')
     form_columns = ('room_no', 'room_type', 'capacity', 'status', 'image_url', 'price_per_hour')  
 admin.add_view(ModelView(User, db.session))
+admin.add_view(ModelView(Booking,db.session))
 admin.add_view(RoomAdmin(Room, db.session))
 
 class Register(Resource):
@@ -102,10 +92,10 @@ class Register(Resource):
             db.session.add(new_user)
             db.session.commit()
             user_data = user_schema.dump(new_user)
-            token = s.dump(email, salt='email-confirm')
+            token = s.dumps(email, salt='email-confirm')
             confirm_url = f"http://localhost:5555/confirm/{token}"
               
-            return {'message': 'User registered successfully', 'confirmation_link': confirm_url},201
+            return {'message': 'User registered successfully', 'confirmation_link': confirm_url, 'user_data': user_data},201
         except Exception as e:
             db.session.rollback()
             return {'error': str(e)}, 500
@@ -121,6 +111,10 @@ class ConfirmEmail(Resource):
             return {'error': 'User not found or already registered'}, 404
         except Exception as e:
             return {'errror': str(e)}, 400
+class UserByID(Resource):
+    def get(self,id):
+        user = User.query.get_or_404(id)
+        return user_schema.dump(user),200    
             
 
 class Login(Resource):
@@ -136,7 +130,7 @@ class Login(Resource):
      
         if check_password_hash(user.password, password):
             access_token = create_access_token(identity=email, expires_delta=timedelta(days=1))
-            return {'message': "Login successfully", "Token":access_token, }, 200
+            return {'message': "Login successfully", "token":access_token,'userId':user.id }, 200
         return {'error': 'Invalid credentials'}, 401
 class GetRooms(Resource):
     def get(self):
@@ -216,24 +210,25 @@ class RoomByID(Resource):
             return {'error': str(e)},500
         
 class BookRoom(Resource):
-    @jwt_required()
+    # @jwt_required()
     def post(self):
         data = request.get_json()     
-        user_id = get_jwt_identity() 
+        user_id = data.get('user_id')
         room_id = data.get('room_id')
         check_in = data.get('check_in')
         check_out = data.get('check_out')
+        print('Userid:', user_id)
        
-        check_in_dt = datetime.datetime.strptime(check_in,'%Y-%m-%dT%H:%M:%S')
-        check_out_dt = datetime.datetime.strptime(check_out, '%Y-%m-%dT%H:%M:%S')
+        check_in_dt = datetime.strptime(check_in,'%Y-%m-%dT%H:%M:%S.%fZ')
+        check_out_dt = datetime.strptime(check_out, '%Y-%m-%dT%H:%M:%S.%fZ')
 
         room = Room.query.get_or_404(room_id)
         hours = (check_out_dt - check_in_dt).total_seconds() / 3600
         total_price = hours * room.price_per_hour
 
-        if not is_room_available(room_id, check_in, check_out):
+        if not is_room_available(room_id, check_in_dt, check_out_dt):
             return {'error': 'Room already booked for the selected time'}, 409
-        new_booking = Booking(user_id=user_id, room_id=room_id, check_in=check_in, check_out=check_out, total_price=total_price, status='booked')
+        new_booking = Booking(user_id=user_id, room_id=room.id, check_in=check_in_dt, check_out=check_out_dt, total_price=total_price, status=True)
         try:
             db.session.add(new_booking)
             db.session.commit()
@@ -273,6 +268,7 @@ api.add_resource(Register, '/register')
 api.add_resource(ConfirmEmail, '/confirm/<token>')
 api.add_resource(BookRoom, '/bookings')
 api.add_resource(CancelBooking, '/bookings/<int:id>')
+api.add_resource(UserByID, '/users/<int:id>')
 
 
 

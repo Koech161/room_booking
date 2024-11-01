@@ -1,33 +1,42 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import api from '../services/api'
-const UserContext = createContext()
-export const UserProvider = ({children}) => {
-    const [currentUser, setCurrentUser] = useState({})
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import api from '../services/api';
+import { useAuth } from './AuthProvider';
+ 
 
-    const fetchUser = async () => {
-        const id = localStorage.getItem('userId')
+const UserContext = createContext();
+
+export const UserProvider = ({ children }) => {
+    const { userId } = useAuth(); 
+    const [currentUser, setCurrentUser] = useState({});
+    const [loading, setLoading] = useState(true);
+
+    const fetchUser = async (id) => {
+        if (!id) return; 
+
+        setLoading(true);
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('token');
             const response = await api.get(`users/${id}`, {
-                headers: {Authorization: `Bearer ${token}`}
-            })
-            setCurrentUser(response.data)
-            
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            console.log("auth:", response.data);
+            setCurrentUser(response.data);
         } catch (error) {
-            console.error('error fetching current user', error);
-            
+            console.error('Error fetching current user', error);
+        } finally {
+            setLoading(false);
         }
-    }
+    };
+
     useEffect(() => {
-        const id = localStorage.getItem('userId')
-        if (id) {
-            fetchUser()
-        }
-    }, [])
-  return (
-    <UserContext.Provider value={{currentUser, setCurrentUser, fetchUser}}>
-        {children}
-    </UserContext.Provider>
-  )
-}
-export const useUser = () => useContext(UserContext)
+        fetchUser(userId);
+    }, [userId]); 
+
+    return (
+        <UserContext.Provider value={{ currentUser, setCurrentUser, fetchUser, loading }}>
+            {children}
+        </UserContext.Provider>
+    );
+};
+
+export const useUser = () => useContext(UserContext);

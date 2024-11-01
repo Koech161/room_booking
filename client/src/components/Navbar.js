@@ -19,7 +19,7 @@ const Navbar = () => {
             <Link className="nav-link" to="/rooms">Rooms</Link>
             <Link className="nav-link" to="/login">Sign In</Link>
             <Link className="nav-link" to="/register">Sign Up</Link>
-            <Link className="nav-link" to="http://127.0.0.1:5555/admin">Admin</Link>
+            <a className="nav-link" href="http://127.0.0.1:5555/admin" target="_blank" rel="noopener noreferrer">Admin</a>
           </div>
         </div>
       </div>
