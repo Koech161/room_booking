@@ -15,12 +15,13 @@ const Home = () => {
     return (
         <div style={{ marginTop: '50px' }}>
             <div
-                className="container-fluid bg-light text-white"
+                className="container-fluid bg-light text-dark"
                 style={{
                     backgroundImage: "url('https://images.pexels.com/photos/2790223/pexels-photo-2790223.jpeg?auto=compress&cs=tinysrgb&w=600&lazy=load')",
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    height: '100vh',
+                    minHeight: '100vh', 
+                    backgroundRepeat: 'no-repeat', 
                     position: 'relative',
                 }}
             >

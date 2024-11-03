@@ -25,7 +25,7 @@ const Login = () => {
             .min(6, 'Password must be at least 6 characters'),
     });
 
-    const handleSubmit = async (values, { setSubmitting }) => {
+    const handleSubmit = async (values, { setSubmitting, resetForm}) => {
         try {
             const res = await api.post('/login', values);
             console.log("Login response:", res.data);
@@ -33,7 +33,7 @@ const Login = () => {
             login(token, userId )
             toast.success(res.data.message || 'Login successful!'); 
             setSubmitting(false);
-            Formik.resetForm()
+            resetForm()
             navigate('/');
         } catch (error) {
             toast.error(error.response?.data?.error || 'Login failed'); 

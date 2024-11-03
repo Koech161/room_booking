@@ -23,18 +23,13 @@ const Navbar = () => {
     toast.warning('Loging Out')
     navigate('/')
   }
+ console.log('admin_url:',process.env.REACT_APP_ADMIN_URL);
  
-  
   return (
-    <nav className="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+    <nav className="navbar navbar-expand-lg navbar-light bg-light fixed-top" style={{fontSize:'20px'}}>
       <div className="container">
-        <Link className="navbar-brand" to="/">
-          <img
-            className="img-fluid"
-            src="https://imgs.search.brave.com/fXDXpByKIVknd3xQ9D0Oycg7FZvuy3OG0RN9Y0Ga2RE/rs:fit:500:0:0:0/g:ce/aHR0cHM6Ly9hcC5y/ZGNwaXguY29tL2Iy/NDU4YzQ2ZjU4MzEz/ODI2MTUwMjdhZjU3/NzZjNmI3by1iMjI3/NDQ2NTcwNXMuanBn"
-            alt="logo"
-            style={{ width: '40px', height: '40px' }}
-          />
+        <Link className="navbar-brand" to="/" style={{fontSize:"30px"}}>
+          NestFinder
         </Link>
         <button className='navbar-toggler' type='button' data-bs-toggle='collapse' data-bs-target='#navbarNav' aria-controls='navbarNav' aria-expanded='false' aria-label='Toggle navigation'>
           <span className='navbar-toggler-icon'></span>
@@ -44,8 +39,10 @@ const Navbar = () => {
           <div className="navbar-nav">
             <Link className="nav-link" to="/">Home</Link>
             <Link className="nav-link" to="/rooms">Rooms</Link>
+            <Link className="nav-link" to="/about">About Us</Link>
+            
             {isAuthenticated && isAdmin ?(
-              <a className="nav-link" href="http://127.0.0.1:5555/admin" target="_blank" rel="noopener noreferrer">Admin</a>
+              <a className="nav-link" href={`${process.env.ADMIN_URL}`} target="_blank" rel="noopener noreferrer">Admin</a>
             ): ''}
           {isAuthenticated ? (
             <>

@@ -18,12 +18,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
-from datetime import datetime
+from datetime import datetime, timezone
 from itsdangerous import URLSafeTimedSerializer
 import json
 import requests
 import base64
 from requests.auth import HTTPBasicAuth
+import pytz
 
 load_dotenv()
 app = Flask(__name__)
@@ -50,6 +51,8 @@ migrate = Migrate(app,db)
 api = Api(app)
 CORS(app)
 jwt = JWTManager(app)
+
+EAT =pytz.timezone('Africa/Nairobi')
 
 s  = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
@@ -222,15 +225,21 @@ class BookRoom(Resource):
         check_out = data.get('check_out')
         print('Userid:', user_id)
        
-        check_in_dt = datetime.strptime(check_in,'%Y-%m-%dT%H:%M:%S.%fZ')
-        check_out_dt = datetime.strptime(check_out, '%Y-%m-%dT%H:%M:%S.%fZ')
+        check_in_dt = datetime.strptime(check_in,'%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.utc)
+        check_out_dt = datetime.strptime(check_out, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.utc)
+        
+        # Convert to EAT
+        check_in_eat = check_in_dt.astimezone(EAT)
+        check_out_eat = check_out_dt.astimezone(EAT)
 
         room = Room.query.get_or_404(room_id)
         hours = (check_out_dt - check_in_dt).total_seconds() / 3600
         total_price = hours * room.price_per_hour
-
-        if not is_room_available(room_id, check_in_dt, check_out_dt):
-            return {'error': 'Room already booked for the selected time'}, 409
+        existing_bookings = is_room_available(room_id, check_in_dt, check_out_dt)
+        if existing_bookings:
+            earliest_checkout = min(booking.check_out for booking in existing_bookings)
+            earliest_checkout_eat = earliest_checkout.astimezone(EAT)
+            return {'error': f"Room already booked for the selected time. Suggested time: {earliest_checkout_eat.strftime("%H:%M:%S")}"}, 409
         new_booking = Booking(user_id=user_id, room_id=room.id, check_in=check_in_dt, check_out=check_out_dt, total_price=total_price, status=True)
         try:
             db.session.add(new_booking)
@@ -248,7 +257,6 @@ class BookRoom(Resource):
         bookings = Booking.query.filter_by(user_id=user_id).all()
         if bookings is None:
             return {'error': 'Booking not found for this user'}, 404 
-        # bookings_data = [booking_schema.dump(booking) for booking in bookings]
         return bookings_schema.dump(bookings), 200    
         
 def is_room_available(room_id, check_in, check_out):
@@ -256,7 +264,7 @@ def is_room_available(room_id, check_in, check_out):
         Booking.room_id == room_id,
         (Booking.check_in < check_out) & (Booking.check_out > check_in)
     ).all()
-    return len(bookings) == 0
+    return bookings
 
 class CancelBooking(Resource):
     def delete(self,id):

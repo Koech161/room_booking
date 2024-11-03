@@ -10,6 +10,9 @@ import Booking from './components/Booking';
 import Login from './components/Login';
 import ConfirmEmail from './components/ConfirmEmail';
 import BookingDetails from './components/BookingDetails';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import Footer from './components/Footer';
+import About from './components/About';
 
 
 function App() {
@@ -23,13 +26,17 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/rooms" element={<Rooms />} />
+          <Route path='/about' element={<About />} />
           <Route path='/register' element={<Register />} />
-          <Route path='/booking' element={<Booking />} />
           <Route path='/login' element={<Login />} />
           <Route path='/confirmemail' element={<ConfirmEmail />} />
-          <Route path='bookings' element={<BookingDetails />} />
+          <Route path='bookings' element={<ProtectedRoute element={<BookingDetails />} />}/>
+          <Route path='/booking' element= {<ProtectedRoute  element={<Booking />}/>}/>
+          
+          
         </Routes>
       </div>
+      <Footer />
     </Router>
     
    
