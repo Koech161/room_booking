@@ -60,12 +60,9 @@ const Rooms = () => {
               <img className="card-img-top img-fluid" src={room.image_url} alt={room.room_no} />
               <div className="card-body">
                 <h2 className="card-title">{room.room_type}</h2>
-                <h2 className="card-title">{room.room_no}</h2>
+  
                 <p className="card-text">{room.capacity} persons</p>
-                <p className="card-text">
-                  Status: {room.status ? <span className='text-success'>Available</span> : 'Booked'}
-                </p>
-                <p className='card-text'>Price: ${room.price_per_hour}</p>
+                <p className='card-text'>Price Per Hour: ${room.price_per_hour}</p>
                 <button 
                   className='btn btn-outline-warning text-dark hover-btn' 
                   onClick={() => handleBookNow(room)}

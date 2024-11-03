@@ -10,8 +10,8 @@ class Payment(db.Model):
     payment_method = db.Column(db.String, nullable=False)
     status = db.Column(db.Boolean, nullable=False)
     booking_id = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)
-
+    transaction_id = db.Column(db.String, unique=True, nullable=False)
     booking = db.relationship('Booking', back_populates='payments')
 
     def __repr__(self):
-        return f"<Payments {self.amount}, {self.payment_date}, {self.payment_method},{self.status}, {self.booking_id}>"
+        return f"<Payments {self.amount}, {self.payment_date}, {self.payment_method},{self.status}, {self.booking_id},{self.transaction_id}>"

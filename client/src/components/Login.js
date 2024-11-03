@@ -33,6 +33,7 @@ const Login = () => {
             login(token, userId )
             toast.success(res.data.message || 'Login successful!'); 
             setSubmitting(false);
+            Formik.resetForm()
             navigate('/');
         } catch (error) {
             toast.error(error.response?.data?.error || 'Login failed'); 

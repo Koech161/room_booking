@@ -1,11 +1,11 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_migrate import Migrate
 from flask_cors import CORS
 from utils import db
 from models.booking import Booking
-from models.payment import Payment
 from models.room import Room
 from models.user import User
+from models.payment import Payment
 from flask_restful import Api, Resource
 from schemas import PaymentSchema, UserSchema, BookingSchema, RoomSchema
 import cloudinary
@@ -19,8 +19,11 @@ from datetime import timedelta
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 from datetime import datetime
-
 from itsdangerous import URLSafeTimedSerializer
+import json
+import requests
+import base64
+from requests.auth import HTTPBasicAuth
 
 load_dotenv()
 app = Flask(__name__)
@@ -129,7 +132,7 @@ class Login(Resource):
                 return {'error': 'Email not confirmed. please check your email for the confirmation link'}, 403
      
         if check_password_hash(user.password, password):
-            access_token = create_access_token(identity=email, expires_delta=timedelta(days=1))
+            access_token = create_access_token(identity=user.id, expires_delta=timedelta(days=1))
             return {'message': "Login successfully", "token":access_token,'userId':user.id }, 200
         return {'error': 'Invalid credentials'}, 401
 class GetRooms(Resource):
@@ -239,6 +242,15 @@ class BookRoom(Resource):
             db.session.rollback()
             return {'error': str(e)}, 500
         
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
+        bookings = Booking.query.filter_by(user_id=user_id).all()
+        if bookings is None:
+            return {'error': 'Booking not found for this user'}, 404 
+        # bookings_data = [booking_schema.dump(booking) for booking in bookings]
+        return bookings_schema.dump(bookings), 200    
+        
 def is_room_available(room_id, check_in, check_out):
     bookings  =Booking.query.filter(
         Booking.room_id == room_id,
@@ -259,6 +271,84 @@ class CancelBooking(Resource):
         except Exception as e:
             db.session.rollback()
             return {'error': str(e)}, 500
+       
+       
+       
+        # Mpesa Integrations 
+
+class PaymentResource(Resource):
+    def post(self):
+        data = request.get_json()
+        amount = data.get('amount')
+        booking_id = data.get('booking_id')
+
+        consumer_key = os.getenv('CONSUMER_KEYS')
+        consumer_secret = os.getenv('CONSUMER_SECRET')
+        passkey= os.getenv('PASSKEY')
+        shortcode = '174379'
+        lipa_na_mpesa_online_url= 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+        callback_url = os.getenv('CALLBACK_URL')
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        print("Callback URL:", callback_url)
+
+        response = requests.get('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', auth=HTTPBasicAuth(consumer_key, consumer_secret))
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to obtain access token', 'details': response.json()}), 400
+
+        access_token = response.json().get('access_token')
+        password_string = f"{shortcode}{passkey}{timestamp}"
+        password = base64.b64encode(password_string.encode()).decode()
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {access_token}'}
+        print('acesstoken:', access_token)
+        payload = {
+            "BusinessShortCode": shortcode,
+            "Password": password,
+            "Timestamp": timestamp,
+            "TransactionType": "CustomerPayBillOnline",
+            "Amount": amount,
+            "PartyA": "254748512459",
+            "PartyB": shortcode,
+            "PhoneNumber": "254748512459",
+            "CallbackURL":callback_url,
+            "AccountReference": f"Booking {booking_id}",
+            "TransactionDesc": "Payment for booking"
+        }
+
+        # Make STK Push request
+        response = requests.post(lipa_na_mpesa_online_url, json=payload, headers=headers)
+
+        if response.status_code == 200:
+            payment_data = response.json()
+
+            payment = Payment(amount=amount, payement_method='M-pesa',payment_date=timestamp, status=True, booking_id=booking_id, transaction_id=payment_data.get('transactionId'))
+            db.session.add(payment)
+            db.session.commit()
+            return jsonify({'message': 'Payment initiated successfuly', "data": payment_data})
+        else:
+            return jsonify({'error': 'Payment initiatation failed', 'details': response.json()})
+
+class CallbackResource(Resource):
+    def post(self):
+        data = request.get_json()
+        if not data or 'transactionId' not in data or 'status' not in data:
+            return jsonify({'error': 'Invalid callback data'})
+        transaction_id = data.get('transactionId')
+        status = data.get('status')
+       
+
+        payment = Payment.query.filter_by(transaction_id=transaction_id).first()
+
+        if payment:
+            payment.status = (status == 'SUCCESS')
+            db.session.commit()
+            return jsonify({'message': 'Payments status updated'})
+        return jsonify({'error': 'Payment record not found'})       
+        
+    
+         
+               
 
 
 api.add_resource(GetRooms, '/rooms')
@@ -269,6 +359,8 @@ api.add_resource(ConfirmEmail, '/confirm/<token>')
 api.add_resource(BookRoom, '/bookings')
 api.add_resource(CancelBooking, '/bookings/<int:id>')
 api.add_resource(UserByID, '/users/<int:id>')
+api.add_resource(PaymentResource, '/pay')
+api.add_resource(CallbackResource, '/callback')
 
 
 

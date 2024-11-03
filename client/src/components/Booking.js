@@ -7,6 +7,8 @@ import api from '../services/api';
 import { ThreeDots } from 'react-loader-spinner';
 import { useAuth } from './AuthProvider';
 import { useUser } from './UserContext';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Booking = () => {
     const location = useLocation();
@@ -54,8 +56,8 @@ const Booking = () => {
             });
 
             if (response.status === 201) {
-                const { total_price } = response.data; // Extract total_price
-                setSuccessMessage(`Booking successful! Booking ID: ${response.data['booked:id']}, Total Price: $${total_price.toFixed(2)}`);
+                const { total_price } = response.data; 
+                toast.success(`Booking successful! Booking ID: ${response.data['booked:id']}, Total Price: $${total_price.toFixed(2)}`);
                 resetForm();
             } else {
                 setError(`Error: ${response.data.error}`);
@@ -63,7 +65,7 @@ const Booking = () => {
         } catch (error) {
             console.error('Error during booking:', error);
             if (error.response) {
-                setError(`Error: ${error.response.data.message || 'An unexpected error occurred.'}`);
+                toast.error(`${error.response.data.error}` || 'Room already booked for the selected time');
             } else {
                 setError('An unexpected error occurred. Please try again later.');
             }
@@ -128,6 +130,7 @@ const Booking = () => {
                     </div>
                 </div>
             </div>
+            <ToastContainer />
         </div>
     );
 };

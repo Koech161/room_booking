@@ -28,7 +28,7 @@ const Register = () => {
     const handleSubmit = async (values, { setSubmitting, setStatus }) => {
         try {
             const res = await api.post('/register', values);
-            setStatus({ success: res.data.message });
+            toast.success({ success: res.data.message });
 
             // Send confirmation email using EmailJS
             const emailResponse = await emailjs.send("service_sghv0ni", "template_rxlfcwf", {
@@ -39,7 +39,7 @@ const Register = () => {
 
             console.log('Email sent successfully:', emailResponse.status, emailResponse.text);
             toast.success('Registration successful! Confirmation email sent.');
-
+            Formik.resetForm()
             navigate('/confirmemail');
         } catch (error) {
             const errorMessage = error.response?.data?.error || 'Registration failed';
@@ -62,8 +62,8 @@ const Register = () => {
                     >
                         {({ isSubmitting, status }) => (
                             <Form>
-                                {status?.success && <div className='alert alert-success'>{status.success}</div>}
-                                {status?.error && <div className='alert alert-danger'>{status.error}</div>}
+                                {/* {status?.success && <div className='alert alert-success'>{status.success}</div>}
+                                {status?.error && <div className='alert alert-danger'>{status.error}</div>} */}
                                 <div className='mb-3'>
                                     <label htmlFor='username'>Username</label>
                                     <Field

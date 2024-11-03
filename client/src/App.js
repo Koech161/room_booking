@@ -9,6 +9,7 @@ import Register from './components/Register';
 import Booking from './components/Booking';
 import Login from './components/Login';
 import ConfirmEmail from './components/ConfirmEmail';
+import BookingDetails from './components/BookingDetails';
 
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
           <Route path='/booking' element={<Booking />} />
           <Route path='/login' element={<Login />} />
           <Route path='/confirmemail' element={<ConfirmEmail />} />
+          <Route path='bookings' element={<BookingDetails />} />
         </Routes>
       </div>
     </Router>
