@@ -101,8 +101,8 @@ const Booking = () => {
                             {({ isSubmitting }) => (
                                 <Form>
                                     <div className="mb-3">
-                                        <label htmlFor="name" className="form-label">Name:</label>
-                                        <Field type="text" name="name" className="form-control" id="name" readOnly />
+            
+                                        <Field type="hidden" name="name" className="form-control" id="name" readOnly />
                                         <ErrorMessage name="name" component="div" className="text-danger" />
                                     </div>
                                     <div className="mb-3">
