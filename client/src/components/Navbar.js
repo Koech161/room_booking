@@ -42,7 +42,7 @@ const Navbar = () => {
             <Link className="nav-link" to="/about">About Us</Link>
             
             {isAuthenticated && isAdmin ?(
-              <a className="nav-link" href={`${process.env.ADMIN_URL}`} target="_blank" rel="noopener noreferrer">Admin</a>
+              <a className="nav-link" href={`${process.env.REACT_APP_ADMIN_URL}`} target="_blank" rel="noopener noreferrer">Admin</a>
             ): ''}
           {isAuthenticated ? (
             <>

@@ -74,6 +74,7 @@ admin.add_view(ModelView(User, db.session))
 admin.add_view(ModelView(Booking,db.session))
 admin.add_view(RoomAdmin(Room, db.session))
 
+
 class Register(Resource):
     def post(self):
         data = request.get_json()
@@ -135,7 +136,9 @@ class Login(Resource):
                 return {'error': 'Email not confirmed. please check your email for the confirmation link'}, 403
      
         if check_password_hash(user.password, password):
-            access_token = create_access_token(identity=user.id, expires_delta=timedelta(days=1))
+            # Token expires after 7 days
+            access_token = create_access_token(identity=user.id, expires_delta=timedelta(days=7))
+
             return {'message': "Login successfully", "token":access_token,'userId':user.id }, 200
         return {'error': 'Invalid credentials'}, 401
 class GetRooms(Resource):
@@ -225,8 +228,11 @@ class BookRoom(Resource):
         check_out = data.get('check_out')
         print('Userid:', user_id)
        
-        check_in_dt = datetime.strptime(check_in,'%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.utc)
-        check_out_dt = datetime.strptime(check_out, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.utc)
+        try:
+            check_in_dt = self.parse_datetime(check_in)
+            check_out_dt = self.parse_datetime(check_out)
+        except ValueError:
+            return {'error': 'Invalid dateformat. Please use YYYY-MM-DDTHH:MM:SS.'},400    
         
         # Convert to EAT
         check_in_eat = check_in_dt.astimezone(EAT)
@@ -244,18 +250,26 @@ class BookRoom(Resource):
         try:
             db.session.add(new_booking)
             db.session.commit()
-            return {'Mesaage': 'Room successfully booked', 'booked:id': new_booking.id, 'total_price': total_price}, 201
-        except ValueError:
-            return {'error': 'Invalid date format. Please use YYYY-MM-DDTHH:MM:SS.'}, 400
+            return {'Message': 'Room successfully booked', 
+            'check_in_eat': check_in_eat.strftime('%Y-%m-%d %H:%M:%S'),
+            'check_out_eat': check_out_eat.strftime('%Y-%m-%d %H:%M:%S'),
+            'booking_id': new_booking.id,
+             'total_price': total_price}, 201
+        
         except Exception as e:
             db.session.rollback()
             return {'error': str(e)}, 500
+
+    @staticmethod
+    def parse_datetime(date_str):
+        return datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.utc)
+
         
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
         bookings = Booking.query.filter_by(user_id=user_id).all()
-        if bookings is None:
+        if not bookings:
             return {'error': 'Booking not found for this user'}, 404 
         return bookings_schema.dump(bookings), 200    
         
@@ -295,7 +309,7 @@ class PaymentResource(Resource):
         passkey= os.getenv('PASSKEY')
         shortcode = '174379'
         lipa_na_mpesa_online_url= 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
-        callback_url = os.getenv('CALLBACK_URL')
+        callback_url ='https://df7b-154-159-237-143.ngrok-free.app/api/payment/callback' 
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         print("Callback URL:", callback_url)
 
@@ -368,7 +382,7 @@ api.add_resource(BookRoom, '/bookings')
 api.add_resource(CancelBooking, '/bookings/<int:id>')
 api.add_resource(UserByID, '/users/<int:id>')
 api.add_resource(PaymentResource, '/pay')
-api.add_resource(CallbackResource, '/callback')
+api.add_resource(CallbackResource, '/api/payment/callback')
 
 
 

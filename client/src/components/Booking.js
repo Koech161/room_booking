@@ -54,10 +54,11 @@ const Booking = () => {
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-
+                console.log(response.data);
+                
             if (response.status === 201) {
                 const { total_price } = response.data; 
-                toast.success(`Booking successful! Booking ID: ${response.data['booked:id']}, Total Price: $${total_price.toFixed(2)}`);
+                toast.success(`Booking successful! Booking ID: ${response.data['booking_id']}, Total Price: $${total_price.toFixed(2)}`);
                 resetForm();
             } else {
                 setError(`Error: ${response.data.error}`);
