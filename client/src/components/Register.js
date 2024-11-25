@@ -40,7 +40,7 @@ const Register = () => {
             console.log('Email sent successfully:', emailResponse.status, emailResponse.text);
             toast.success('Registration successful! Confirmation email sent.');
             Formik.resetForm()
-            navigate('/confirmemail');
+            navigate('/login');
         } catch (error) {
             const errorMessage = error.response?.data?.error || 'Registration failed';
             toast.error(errorMessage);
