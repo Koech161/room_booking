@@ -104,7 +104,7 @@ class Register(Resource):
             db.session.commit()
             user_data = user_schema.dump(new_user)
             token = s.dumps(email, salt='email-confirm')
-            confirm_url = f"http://localhost:5555/confirm/{token}"
+            confirm_url = f"https://room-booking-2-clfx.onrender.com/confirm/{token}"
               
             return {'message': 'User registered successfully', 'confirmation_link': confirm_url, 'user_data': user_data},201
         except Exception as e:
